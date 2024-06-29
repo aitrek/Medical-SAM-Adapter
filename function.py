@@ -94,6 +94,7 @@ def train_sam(args, net: nn.Module, optimizer, train_loader, test_loader,
     all_metrics = []
     with tqdm(total=len(train_loader), desc=f'Epoch {epoch}', unit='img') as pbar:
         for pack in train_loader:
+            net.train()
 
             global_vals["step"] += 1
 

@@ -43,7 +43,7 @@ def main():
     args.gpu = True
     args.w = 32
     args.b = 16
-    args.val_freq = 1000
+    args.val_freq = 5000
 
     # args.data_path = "/Users/zhaojq/Datasets/ALL_Multi"
     # args.gpu = False
