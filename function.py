@@ -245,7 +245,7 @@ def train_sam(args, net: nn.Module, optimizer, train_loader, test_loader,
                         'optimizer': optimizer.state_dict(),
                         'best_tol': global_vals["best_dice"],
                         'path_helper': args.path_helper,
-                    }, True, args.path_helper['ckpt_path'],
+                    }, True, os.path.dirname(__file__),
                         filename="best_dice_checkpoint.pth")
 
                 wandb.log({"Loss/Train": sum(train_loss_list) / len(train_loss_list),
@@ -275,7 +275,9 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
     else:
         lossfunc = criterion_G
 
-    with tqdm(total=n_val, desc='Validation round', unit='batch', leave=False) as pbar:
+    val_loss_list = []
+
+    with tqdm(total=n_val, desc='Validation round', unit='batch', leave=False, ascii=True) as pbar:
         for ind, pack in enumerate(val_loader):
             imgsw = pack['image'].to(dtype = torch.float32, device = GPUdevice)
             masksw = pack['label'].to(dtype = torch.float32, device = GPUdevice)
@@ -384,7 +386,9 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
 
                     # Resize to the ordered output size
                     pred = F.interpolate(pred,size=(args.out_size,args.out_size))
-                    tot += lossfunc(pred, masks)
+                    loss = lossfunc(pred, masks)
+                    val_loss_list.append(loss.item())
+                    tot += loss
 
                     # '''vis images'''
                     # if ind % args.vis == 0:
@@ -405,7 +409,7 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
     if args.evl_chunk:
         n_val = n_val * (imgsw.size(-1) // evl_ch)
 
-    return tot/ n_val , tuple([a/n_val for a in mix_res])
+    return sum(val_loss_list) / len(val_loss_list), tuple([a/n_val for a in mix_res])
 
 def transform_prompt(coord,label,h,w):
     coord = coord.transpose(0,1)
