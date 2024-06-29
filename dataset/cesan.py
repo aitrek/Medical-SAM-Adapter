@@ -47,6 +47,7 @@ class CESAN(Dataset):
             dataset_dir = os.path.join(self.data_root, name)
             if not os.path.isdir(dataset_dir):
                 continue
+            print(f"load dataset: {dataset_dir}")
             split_path = os.path.join(
                 dataset_dir,
                 f"split_seed-{self.seed}_test_size-{self.test_size}.json"
