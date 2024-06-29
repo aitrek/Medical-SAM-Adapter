@@ -242,7 +242,7 @@ def train_sam(args, net: nn.Module, optimizer, train_loader, test_loader,
 
             pbar.update()
 
-            if global_vals["step"] == 10:
+            if global_vals["step"] % args.val_freq == 0:
                 tol, val_metrics = validation_sam(args, test_loader, epoch, net, writer)
                 print(f'Total validate score: {tol}|| @ epoch {epoch}.')
                 print(f'Total val_metrics: {val_metrics}|| @ epoch {epoch}.')
