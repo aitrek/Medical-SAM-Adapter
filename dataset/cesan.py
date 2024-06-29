@@ -38,7 +38,7 @@ class CESAN(Dataset):
         label_paths = []
         for name in os.listdir(self.data_root):
             if name in self.excluded:
-                print(f"exclude: {name}")
+                print(f"skip excluded dataset: {name}")
                 continue
 
             if name.startswith(".") or name.startswith("__"):
@@ -47,7 +47,7 @@ class CESAN(Dataset):
             dataset_dir = os.path.join(self.data_root, name)
             if not os.path.isdir(dataset_dir):
                 continue
-            print(f"load dataset: {dataset_dir}")
+            print(f"load {self.mode} dataset: {dataset_dir}")
             split_path = os.path.join(
                 dataset_dir,
                 f"split_seed-{self.seed}_test_size-{self.test_size}.json"
