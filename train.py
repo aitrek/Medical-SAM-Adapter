@@ -15,7 +15,7 @@ import torchvision.transforms as transforms
 from PIL import Image
 from skimage import io
 from sklearn.metrics import accuracy_score, confusion_matrix, roc_auc_score
-from tensorboardX import SummaryWriter
+# from tensorboardX import SummaryWriter
 #from dataset import *
 from torch.autograd import Variable
 from torch.utils.data import DataLoader, random_split
