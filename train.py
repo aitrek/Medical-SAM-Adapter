@@ -38,8 +38,6 @@ def main():
     wandb.init(project="SAM_Nuclei",
                name=f"Medical-SAM-Adapter_{datetime.now().strftime('%m-%d_%H-%M')}")
 
-
-
     args.dataset = "cesan"
     args.data_path = "/root/autodl-tmp/datasets/SAM_nuclei_preprocessed/ALL_Multi"
     args.gpu = True

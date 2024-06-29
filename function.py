@@ -242,7 +242,7 @@ def train_sam(args, net: nn.Module, optimizer, train_loader, test_loader,
 
             pbar.update()
 
-            if global_vals["step"] % args.val_freq == 0:
+            if global_vals["step"] == 10:
                 tol, val_metrics = validation_sam(args, test_loader, epoch, net, writer)
                 print(f'Total validate score: {tol}|| @ epoch {epoch}.')
                 print(f'Total val_metrics: {val_metrics}|| @ epoch {epoch}.')
@@ -308,8 +308,8 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
 
     with tqdm(total=n_val, desc='Validation round', unit='batch', leave=False, ascii=True) as pbar:
         for ind, pack in enumerate(val_loader):
-            if ind > 10:
-                break
+            # if ind > 10:
+            #     break
             imgsw = pack['image'].to(dtype = torch.float32, device = GPUdevice)
             masksw = pack['label'].to(dtype = torch.float32, device = GPUdevice)
             # for k,v in pack['image_meta_dict'].items():
