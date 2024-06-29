@@ -43,8 +43,8 @@ def get_dataloader(args):
     ])
 
     if args.dataset == 'cesan':
-        isic_train_dataset = CESAN(args, args.data_path, mode='Training')
-        isic_test_dataset = CESAN(args, args.data_path, mode='Test')
+        isic_train_dataset = CESAN(args.data_path, mode='Training')
+        isic_test_dataset = CESAN(args.data_path, mode='Test')
 
         nice_train_loader = DataLoader(isic_train_dataset, batch_size=args.b,
                                        shuffle=True, num_workers=args.w,
