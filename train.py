@@ -43,7 +43,7 @@ def main():
     args.gpu = True
     args.lr = 1e-3
     args.w = 16
-    args.b = 64
+    args.b = 32
     args.val_freq = 2000
 
     # args.data_path = "/Users/zhaojq/Datasets/ALL_Multi"
@@ -55,7 +55,7 @@ def main():
     args.sam_ckpt = "sam_vit_b_01ec64.pth"
     args.excluded = ["MoNuSeg2020"]
     args.test_sample_rate = 0.5
-    args.weights = "White Blood Cell_MicroScope_sam_1024.pth"
+    # args.weights = "White Blood Cell_MicroScope_sam_1024.pth"
 
     if args.seed is not None:
         np.random.seed(args.seed)
