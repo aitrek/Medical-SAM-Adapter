@@ -23,6 +23,8 @@ from torch.utils.data.sampler import SubsetRandomSampler
 from tqdm import tqdm
 
 import cfg
+args = cfg.parse_args()
+
 import function
 from conf import settings
 #from models.discriminatorlayer import discriminator
@@ -36,17 +38,19 @@ def main():
     wandb.init(project="SAM_Nuclei",
                name=f"Medical-SAM-Adapter_{datetime.now().strftime('%m-%d_%H-%M')}")
 
-    args = cfg.parse_args()
+
 
     args.dataset = "cesan"
     args.data_path = "/root/autodl-tmp/datasets/SAM_nuclei_preprocessed/ALL_Multi"
-    # args.gpu = False
+    # args.data_path = "/Users/zhaojq/Datasets/ALL_Multi"
+    args.gpu = True
     args.sam_ckpt = "sam_vit_b_01ec64.pth"
-    args.val_freq = 500
+    args.val_freq = 5
     args.w = 16
     args.b = 16
     args.excluded = ["MoNuSeg2020"]
     args.test_sample_rate = 0.2
+    args.weights = "White Blood Cell_MicroScope_sam_1024.pth"
 
     if args.seed is not None:
         np.random.seed(args.seed)
@@ -57,7 +61,10 @@ def main():
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-    GPUdevice = torch.device('cuda', args.gpu_device)
+    if args.gpu:
+        GPUdevice = torch.device('cuda', args.gpu_device)
+    else:
+        GPUdevice = torch.device('cpu')
 
     net = get_network(args, args.net, use_gpu=args.gpu, gpu_device=GPUdevice, distribution = args.distributed)
     if args.pretrain:
@@ -118,18 +125,17 @@ def main():
 
     for epoch in range(settings.EPOCH):
 
-        if epoch and epoch < 5:
-            if args.dataset != 'REFUGE':
-                tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, epoch, net, writer, global_vals)
-                logger.info(f'Total score: {tol}, IOU: {eiou}, DICE: {edice} || @ epoch {epoch}.')
-            else:
-                tol, (eiou_cup, eiou_disc, edice_cup, edice_disc) = function.validation_sam(args, nice_test_loader, epoch, net, writer, global_vals)
-                logger.info(f'Total score: {tol}, IOU_CUP: {eiou_cup}, IOU_DISC: {eiou_disc}, DICE_CUP: {edice_cup}, DICE_DISC: {edice_disc} || @ epoch {epoch}.')
+        # if epoch and epoch < 5:
+        #     if args.dataset != 'REFUGE':
+        #         tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, epoch, net, writer)
+        #         logger.info(f'Total score: {tol}, IOU: {eiou}, DICE: {edice} || @ epoch {epoch}.')
+        #     else:
+        #         tol, (eiou_cup, eiou_disc, edice_cup, edice_disc) = function.validation_sam(args, nice_test_loader, epoch, net, writer, global_vals)
+        #         logger.info(f'Total score: {tol}, IOU_CUP: {eiou_cup}, IOU_DISC: {eiou_disc}, DICE_CUP: {edice_cup}, DICE_DISC: {edice_disc} || @ epoch {epoch}.')
 
         net.train()
         time_start = time.time()
-        loss = function.train_sam(args, net, optimizer, nice_train_loader, nice_test_loader, epoch, writer, vis = args.vis, global_vals=global_vals)
-        logger.info(f'Train loss: {loss} || @ epoch {epoch}.')
+        function.train_sam(args, net, optimizer, nice_train_loader, nice_test_loader, epoch, writer, vis = args.vis, global_vals=global_vals)
         time_end = time.time()
         print('time_for_training ', time_end - time_start)
 

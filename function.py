@@ -35,16 +35,25 @@ import pytorch_ssim
 #from models.discriminatorlayer import discriminator
 from conf import settings
 from utils import *
+from metrics import SegMetrics, AggregatedMetrics
+
+metrics_names = [
+    'iou', 'dice', 'precision', 'f1_score', 'recall',
+    'specificity', 'accuracy', 'aji', "dq", "sq", "pq"
+]
 
 # from lucent.modelzoo.util import get_model_layers
 # from lucent.optvis import render, param, transform, objectives
 # from lucent.modelzoo import inceptionv1
 
 args = cfg.parse_args()
+if args.gpu:
+    GPUdevice = torch.device('cuda', args.gpu_device)
+    pos_weight = torch.ones([1]).cuda(device=GPUdevice) * 2
+else:
+    GPUdevice = torch.device('cpu')
+    pos_weight = torch.ones([1])
 
-GPUdevice = torch.device('cuda', args.gpu_device)
-# GPUdevice = torch.device('cpu')
-pos_weight = torch.ones([1]).cuda(device=GPUdevice)*2
 criterion_G = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 seed = torch.randint(1,11,(args.b,7))
 
@@ -72,13 +81,17 @@ def train_sam(args, net: nn.Module, optimizer, train_loader, test_loader,
 
     train_loss_list = []
     epoch_loss = 0
-    GPUdevice = torch.device('cuda:' + str(args.gpu_device))
+    if args.gpu:
+        GPUdevice = torch.device('cuda:' + str(args.gpu_device))
+    else:
+        GPUdevice = torch.device('cpu')
 
     if args.thd:
         lossfunc = DiceCELoss(sigmoid=True, squared_pred=True, reduction='mean')
     else:
         lossfunc = criterion_G
 
+    all_metrics = []
     with tqdm(total=len(train_loader), desc=f'Epoch {epoch}', unit='img') as pbar:
         for pack in train_loader:
 
@@ -201,6 +214,9 @@ def train_sam(args, net: nn.Module, optimizer, train_loader, test_loader,
 
             loss = lossfunc(pred, masks)
 
+            seg_metrics = SegMetrics(metrics_names, pred, masks)
+            all_metrics.append(seg_metrics.result())
+
             pbar.set_postfix(**{'loss (batch)': loss.item()})
             epoch_loss += loss.item()
             train_loss_list.append(loss.item())
@@ -227,13 +243,16 @@ def train_sam(args, net: nn.Module, optimizer, train_loader, test_loader,
             pbar.update()
 
             if global_vals["step"] % args.val_freq == 0:
-                tol, (eiou, edice) = validation_sam(args, test_loader, epoch, net, writer)
-                print(f'Total validate score: {tol}, IOU: {eiou}, DICE: {edice} || @ epoch {epoch}.')
+                tol, val_metrics = validation_sam(args, test_loader, epoch, net, writer)
+                print(f'Total validate score: {tol}|| @ epoch {epoch}.')
+                print(f'Total val_metrics: {val_metrics}|| @ epoch {epoch}.')
 
                 if args.distributed != 'none':
                     sd = net.module.state_dict()
                 else:
                     sd = net.state_dict()
+
+                edice = val_metrics["dice"]
 
                 if edice < global_vals["best_dice"]:
                     global_vals["best_dice"] = edice
@@ -248,17 +267,24 @@ def train_sam(args, net: nn.Module, optimizer, train_loader, test_loader,
                     }, True, os.path.dirname(__file__),
                         filename="best_dice_checkpoint.pth")
 
-                wandb.log({"Loss/Train": sum(train_loss_list) / len(train_loss_list),
-                           "Loss/Test": tol})
-                train_loss_list = []
+                agg_metrics = AggregatedMetrics(metrics_names, all_metrics)
+                metrics_overall = agg_metrics.aggregate()
 
-    return loss
+                log_data = {"Loss/Train": sum(train_loss_list) / len(train_loss_list),
+                           "Loss/Test": tol}
+                for key, val in metrics_overall.items():
+                    log_data[f"Metrics/{key}"] = val
+
+                wandb.log(log_data)
+                train_loss_list = []
+                all_metrics = []
 
 
 @torch.no_grad()
 def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
      # eval mode
     net.eval()
+    all_metrics = []
 
     mask_type = torch.float32
     n_val = len(val_loader)  # the number of batch
@@ -267,7 +293,10 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
     tot = 0
     hard = 0
     threshold = (0.1, 0.3, 0.5, 0.7, 0.9)
-    GPUdevice = torch.device('cuda:' + str(args.gpu_device))
+    if args.gpu:
+        GPUdevice = torch.device('cuda:' + str(args.gpu_device))
+    else:
+        GPUdevice = torch.device('cpu')
     device = GPUdevice
 
     if args.thd:
@@ -279,6 +308,8 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
 
     with tqdm(total=n_val, desc='Validation round', unit='batch', leave=False, ascii=True) as pbar:
         for ind, pack in enumerate(val_loader):
+            if ind > 10:
+                break
             imgsw = pack['image'].to(dtype = torch.float32, device = GPUdevice)
             masksw = pack['label'].to(dtype = torch.float32, device = GPUdevice)
             # for k,v in pack['image_meta_dict'].items():
@@ -387,6 +418,9 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
                     # Resize to the ordered output size
                     pred = F.interpolate(pred,size=(args.out_size,args.out_size))
                     loss = lossfunc(pred, masks)
+                    seg_metrics = SegMetrics(metrics_names, pred, masks)
+                    all_metrics.append(seg_metrics.result())
+
                     val_loss_list.append(loss.item())
                     tot += loss
 
@@ -409,7 +443,11 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
     if args.evl_chunk:
         n_val = n_val * (imgsw.size(-1) // evl_ch)
 
-    return sum(val_loss_list) / len(val_loss_list), tuple([a/n_val for a in mix_res])
+    agg_metrics = AggregatedMetrics(metrics_names, all_metrics)
+    metrics_overall = agg_metrics.aggregate()
+
+    return sum(val_loss_list) / len(val_loss_list), metrics_overall
+
 
 def transform_prompt(coord,label,h,w):
     coord = coord.transpose(0,1)

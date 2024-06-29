@@ -62,7 +62,10 @@ from models.discriminator import Discriminator
 # from siren_pytorch import SirenNet, SirenWrapper
 
 args = cfg.parse_args()
-device = torch.device('cuda', args.gpu_device)
+if args.gpu:
+    device = torch.device('cuda', args.gpu_device)
+else:
+    device = torch.device("cpu")
 
 '''preparation of domain loss'''
 # cnn = vgg19(pretrained=True).features.to(device).eval()
