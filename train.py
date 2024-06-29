@@ -46,11 +46,11 @@ def main():
     # args.data_path = "/Users/zhaojq/Datasets/ALL_Multi"
     # args.gpu = False
     args.sam_ckpt = "sam_vit_b_01ec64.pth"
-    args.val_freq = 100
+    args.val_freq = 1000
     args.w = 16
     args.b = 16
     args.excluded = ["MoNuSeg2020"]
-    args.test_sample_rate = 0.2
+    args.test_sample_rate = 0.3
     args.weights = "White Blood Cell_MicroScope_sam_1024.pth"
 
     if args.seed is not None:
