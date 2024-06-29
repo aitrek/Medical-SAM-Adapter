@@ -54,7 +54,7 @@ def main():
 
     args.sam_ckpt = "sam_vit_b_01ec64.pth"
     args.excluded = ["MoNuSeg2020"]
-    args.test_sample_rate = 0.3
+    args.test_sample_rate = 0.5
     args.weights = "White Blood Cell_MicroScope_sam_1024.pth"
 
     if args.seed is not None:
