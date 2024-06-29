@@ -41,9 +41,10 @@ def main():
     args.dataset = "cesan"
     args.data_path = "/root/autodl-tmp/datasets/SAM_nuclei_preprocessed/ALL_Multi"
     args.gpu = True
-    args.w = 32
-    args.b = 16
-    args.val_freq = 5000
+    args.lr = 1e-3
+    args.w = 16
+    args.b = 64
+    args.val_freq = 2000
 
     # args.data_path = "/Users/zhaojq/Datasets/ALL_Multi"
     # args.gpu = False

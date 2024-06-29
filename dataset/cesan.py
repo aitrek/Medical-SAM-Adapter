@@ -16,10 +16,12 @@ class CESAN(Dataset):
 
     def __init__(self, data_root, mode='Training', seed: int = 42,
                  test_size: float = 0.1, test_sample_rate: float = None,
-                 prompt='click', excluded: List[str] = None):
+                 prompt='click', excluded: List[str] = None,
+                 min_mask_region_area: float = 20):
 
         self.data_root = data_root
         self.excluded = excluded if excluded else []
+        self.min_mask_region_area = min_mask_region_area
         self.mode = mode
         self.seed = seed
         self.test_size = test_size
@@ -72,7 +74,10 @@ class CESAN(Dataset):
                 label_path = os.path.join(dataset_dir, label_path)
 
                 mask = np.load(label_path)
-                mask_vals = [_ for _ in np.unique(mask) if _ != 0]
+                mask_vals = [
+                    _ for _ in np.unique(mask)
+                    if _ != 0 and (mask == _).sum() > self.min_mask_region_area
+                ]
                 if not mask_vals:
                     continue
                 for mask_val in mask_vals:
@@ -120,3 +125,9 @@ class CESAN(Dataset):
             'pt': pt,
             'image_meta_dict': image_meta_dict,
         }
+
+if __name__ == "__main__":
+    dataset = CESAN(
+        data_root="/Users/zhaojq/Datasets/ALL_Multi",
+    )
+    print(len(dataset))
