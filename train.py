@@ -1,17 +1,11 @@
-# train.py
-#!/usr/bin/env	python3
-
-""" train network using pytorch
-    Junde Wu
-"""
-
 import argparse
 import os
 import sys
+import random
 import time
 from collections import OrderedDict
 from datetime import datetime
-
+import wandb
 import numpy as np
 import torch
 import torch.nn as nn
@@ -35,9 +29,33 @@ from conf import settings
 from dataset import *
 from utils import *
 
+torch.set_default_dtype(torch.float32)
+
+
 def main():
+    wandb.init(project="SAM_Nuclei",
+               name=f"Medical-SAM-Adapter_{datetime.datetime.now().strftime('%m-%d_%H-%M')}")
 
     args = cfg.parse_args()
+
+    args.dataset = "cesan"
+    args.data_path = "/root/autodl-tmp/datasets/SAM_nuclei_preprocessed/ALL_Multi"
+    # args.gpu = False
+    args.sam_ckpt = "sam_vit_b_01ec64.pth"
+    args.val_freq = 500
+    args.w = 16
+    args.b = 16
+    args.excluded = ["MoNuSeg2020"]
+    args.test_sample_rate = 0.2
+
+    if args.seed is not None:
+        np.random.seed(args.seed)
+        random.sed(args.seed)
+        torch.manual_seed(args.seed)
+        torch.cuda.manual_seed(args.seed)
+        torch.cuda.manual_seed_all(args.seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
     GPUdevice = torch.device('cuda', args.gpu_device)
 
@@ -72,6 +90,7 @@ def main():
     logger.info(args)
 
     nice_train_loader, nice_test_loader = get_dataloader(args)
+    print(f"len(train_loader): {len(nice_train_loader)}, len(test_loader): {len(nice_test_loader)}")
 
     '''checkpoint path and tensorboard'''
     # iter_per_epoch = len(Glaucoma_training_loader)
@@ -79,10 +98,11 @@ def main():
     #use tensorboard
     if not os.path.exists(settings.LOG_DIR):
         os.mkdir(settings.LOG_DIR)
-    writer = SummaryWriter(log_dir=os.path.join(
-            settings.LOG_DIR, args.net, settings.TIME_NOW))
+    # writer = SummaryWriter(log_dir=os.path.join(
+    #         settings.LOG_DIR, args.net, settings.TIME_NOW))
     # input_tensor = torch.Tensor(args.b, 3, 256, 256).cuda(device = GPUdevice)
     # writer.add_graph(net, Variable(input_tensor, requires_grad=True))
+    writer = None
 
     #create checkpoint folder to save model
     if not os.path.exists(checkpoint_path):
@@ -94,14 +114,16 @@ def main():
     best_tol = 1e4
     best_dice = 0.0
 
+    global_vals = {"step": 0, "best_dice": 100}
+
     for epoch in range(settings.EPOCH):
 
         if epoch and epoch < 5:
             if args.dataset != 'REFUGE':
-                tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, epoch, net, writer)
+                tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, epoch, net, writer, global_vals)
                 logger.info(f'Total score: {tol}, IOU: {eiou}, DICE: {edice} || @ epoch {epoch}.')
             else:
-                tol, (eiou_cup, eiou_disc, edice_cup, edice_disc) = function.validation_sam(args, nice_test_loader, epoch, net, writer)
+                tol, (eiou_cup, eiou_disc, edice_cup, edice_disc) = function.validation_sam(args, nice_test_loader, epoch, net, writer, global_vals)
                 logger.info(f'Total score: {tol}, IOU_CUP: {eiou_cup}, IOU_DISC: {eiou_disc}, DICE_CUP: {edice_cup}, DICE_DISC: {edice_disc} || @ epoch {epoch}.')
 
         net.train()
@@ -114,7 +136,7 @@ def main():
         net.eval()
         if epoch and epoch % args.val_freq == 0 or epoch == settings.EPOCH-1:
             if args.dataset != 'REFUGE':
-                tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, epoch, net, writer)
+                tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, nice_test_loader, epoch, net, writer)
                 logger.info(f'Total score: {tol}, IOU: {eiou}, DICE: {edice} || @ epoch {epoch}.')
             else:
                 tol, (eiou_cup, eiou_disc, edice_cup, edice_disc) = function.validation_sam(args, nice_test_loader, epoch, net, writer)
@@ -140,7 +162,8 @@ def main():
             else:
                 is_best = False
 
-    writer.close()
+    # writer.close()
+    wandb.finish()
 
 
 if __name__ == '__main__':

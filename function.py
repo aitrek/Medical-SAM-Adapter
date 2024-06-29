@@ -7,7 +7,6 @@ import tempfile
 import time
 from collections import OrderedDict
 from datetime import datetime
-
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -16,6 +15,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
+import wandb
 from einops import rearrange
 from monai.inferers import sliding_window_inference
 from monai.losses import DiceCELoss
@@ -23,7 +23,7 @@ from monai.transforms import AsDiscrete
 from PIL import Image
 from skimage import io
 from sklearn.metrics import accuracy_score, confusion_matrix, roc_auc_score
-from tensorboardX import SummaryWriter
+# from tensorboardX import SummaryWriter
 #from dataset import *
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
@@ -42,7 +42,8 @@ from utils import *
 
 args = cfg.parse_args()
 
-GPUdevice = torch.device('cuda', args.gpu_device)
+# GPUdevice = torch.device('cuda', args.gpu_device)
+GPUdevice = torch.device('cpu')
 pos_weight = torch.ones([1]).cuda(device=GPUdevice)*2
 criterion_G = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 seed = torch.randint(1,11,(args.b,7))
@@ -59,8 +60,9 @@ global_step_best = 0
 epoch_loss_values = []
 metric_values = []
 
-def train_sam(args, net: nn.Module, optimizer, train_loader,
-          epoch, writer, schedulers=None, vis = 50):
+
+def train_sam(args, net: nn.Module, optimizer, train_loader, test_loader,
+              epoch, writer, schedulers=None, vis = 50, global_vals: dict = {}):
     hard = 0
     epoch_loss = 0
     ind = 0
@@ -68,6 +70,7 @@ def train_sam(args, net: nn.Module, optimizer, train_loader,
     net.train()
     optimizer.zero_grad()
 
+    train_loss_list = []
     epoch_loss = 0
     GPUdevice = torch.device('cuda:' + str(args.gpu_device))
 
@@ -78,6 +81,11 @@ def train_sam(args, net: nn.Module, optimizer, train_loader,
 
     with tqdm(total=len(train_loader), desc=f'Epoch {epoch}', unit='img') as pbar:
         for pack in train_loader:
+
+            log_data = {}
+
+            global_vals["step"] += 1
+
             # torch.cuda.empty_cache()
             imgs = pack['image'].to(dtype = torch.float32, device = GPUdevice)
             masks = pack['label'].to(dtype = torch.float32, device = GPUdevice)
@@ -197,6 +205,7 @@ def train_sam(args, net: nn.Module, optimizer, train_loader,
 
             pbar.set_postfix(**{'loss (batch)': loss.item()})
             epoch_loss += loss.item()
+            train_loss_list.append(loss.item())
 
             # nn.utils.clip_grad_value_(net.parameters(), 0.1)
             if args.mod == 'sam_adalora':
@@ -219,8 +228,36 @@ def train_sam(args, net: nn.Module, optimizer, train_loader,
 
             pbar.update()
 
+            if global_vals["step"] % args.val_freq == 0:
+                tol, (eiou, edice) = validation_sam(args, test_loader, epoch, net, writer)
+                print(f'Total validate score: {tol}, IOU: {eiou}, DICE: {edice} || @ epoch {epoch}.')
+
+                if args.distributed != 'none':
+                    sd = net.module.state_dict()
+                else:
+                    sd = net.state_dict()
+
+                if edice < global_vals["best_dice"]:
+                    global_vals["best_dice"] = edice
+                    save_checkpoint({
+                        'epoch': epoch,
+                        'step': global_vals["step"],
+                        'model': args.net,
+                        'state_dict': sd,
+                        'optimizer': optimizer.state_dict(),
+                        'best_tol': global_vals["best_dice"],
+                        'path_helper': args.path_helper,
+                    }, True, args.path_helper['ckpt_path'],
+                        filename="best_dice_checkpoint.pth")
+
+                wandb.log({"Loss/Train": sum(train_loss_list) / len(train_loss_list),
+                           "Loss/Test": tol})
+                train_loss_list = []
+
     return loss
 
+
+@torch.no_grad()
 def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
      # eval mode
     net.eval()

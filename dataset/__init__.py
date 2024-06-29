@@ -18,6 +18,7 @@ from .segrap import SegRap
 from .stare import STARE
 from .toothfairy import ToothFairy
 from .wbc import WBC
+from .cesan import CESAN
 
 
 def get_dataloader(args):
@@ -40,7 +41,18 @@ def get_dataloader(args):
         transforms.Resize((args.out_size,args.out_size)),
         transforms.ToTensor(),
     ])
-    
+
+    if args.dataset == 'cesan':
+        isic_train_dataset = CESAN(args, args.data_path, mode='Training')
+        isic_test_dataset = CESAN(args, args.data_path, mode='Test')
+
+        nice_train_loader = DataLoader(isic_train_dataset, batch_size=args.b,
+                                       shuffle=True, num_workers=args.w,
+                                       pin_memory=True)
+        nice_test_loader = DataLoader(isic_test_dataset, batch_size=args.b,
+                                      shuffle=False, num_workers=args.w,
+                                      pin_memory=True)
+
     if args.dataset == 'isic':
         '''isic data'''
         isic_train_dataset = ISIC2016(args, args.data_path, transform = transform_train, transform_msk= transform_train_seg, mode = 'Training')

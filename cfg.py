@@ -52,6 +52,11 @@ def parse_args():
     help='The path of segmentation data')
     # '../dataset/RIGA/DiscRegion'
     # '../dataset/ISIC'
+    parser.add_argument('-seed', type=int, default=42,
+                        help='random')
+    parser.add_argument('-test_size', type=float, default=0.1)
+    parser.add_argument('-test_sample_rate', type=float, default=0.2)
+
     opt = parser.parse_args()
 
     return opt

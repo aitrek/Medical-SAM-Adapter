@@ -46,7 +46,7 @@ from monai.transforms import (AsDiscrete, Compose, CropForegroundd,
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 from torch import autograd
 from torch.autograd import Function, Variable
-from torch.optim.lr_scheduler import _LRScheduler
+from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader
 # from lucent.optvis.param.spatial import pixel_image, fft_image, init_image
 # from lucent.optvis.param.color import to_valid_rgb
@@ -229,7 +229,7 @@ def cka_loss(gram_featureA, gram_featureB):
     return scaled_hsic / (normalization_x * normalization_y)
 
 
-class WarmUpLR(_LRScheduler):
+class WarmUpLR(LRScheduler):
     """warmup_training learning rate scheduler
     Args:
         optimizer: optimzier(e.g. SGD)
