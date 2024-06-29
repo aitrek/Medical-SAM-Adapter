@@ -34,7 +34,7 @@ torch.set_default_dtype(torch.float32)
 
 def main():
     wandb.init(project="SAM_Nuclei",
-               name=f"Medical-SAM-Adapter_{datetime.datetime.now().strftime('%m-%d_%H-%M')}")
+               name=f"Medical-SAM-Adapter_{datetime.now().strftime('%m-%d_%H-%M')}")
 
     args = cfg.parse_args()
 
