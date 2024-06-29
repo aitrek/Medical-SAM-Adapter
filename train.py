@@ -42,8 +42,9 @@ def main():
 
     args.dataset = "cesan"
     args.data_path = "/root/autodl-tmp/datasets/SAM_nuclei_preprocessed/ALL_Multi"
-    # args.data_path = "/Users/zhaojq/Datasets/ALL_Multi"
     args.gpu = True
+    # args.data_path = "/Users/zhaojq/Datasets/ALL_Multi"
+    # args.gpu = False
     args.sam_ckpt = "sam_vit_b_01ec64.pth"
     args.val_freq = 100
     args.w = 16
@@ -80,16 +81,18 @@ def main():
         assert os.path.exists(args.weights)
         checkpoint_file = os.path.join(args.weights)
         assert os.path.exists(checkpoint_file)
-        loc = 'cuda:{}'.format(args.gpu_device)
+        loc = 'cuda:{}'.format(args.gpu_device) if args.gpu else "cpu"
         checkpoint = torch.load(checkpoint_file, map_location=loc)
-        start_epoch = checkpoint['epoch']
-        best_tol = checkpoint['best_tol']
+        start_epoch = checkpoint.get('epoch', 0)
+        best_tol = checkpoint.get('best_tol', 100)
 
-        net.load_state_dict(checkpoint['state_dict'],strict=False)
+        net.load_state_dict(checkpoint['state_dict'], strict=False)
         # optimizer.load_state_dict(checkpoint['optimizer'], strict=False)
 
-        args.path_helper = checkpoint['path_helper']
-        logger = create_logger(args.path_helper['log_path'])
+        args.path_helper = checkpoint.get('path_helper', {})
+        log_dir = os.path.join(os.path.dirname(__file__), "log")
+        os.makedirs(log_dir, exist_ok=True)
+        logger = create_logger(log_dir)
         print(f'=> loaded checkpoint {checkpoint_file} (epoch {start_epoch})')
 
     args.path_helper = set_log_dir('logs', args.exp_name)
