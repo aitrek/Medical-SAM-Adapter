@@ -45,7 +45,7 @@ def main():
     # args.data_path = "/Users/zhaojq/Datasets/ALL_Multi"
     args.gpu = True
     args.sam_ckpt = "sam_vit_b_01ec64.pth"
-    args.val_freq = 5
+    args.val_freq = 100
     args.w = 16
     args.b = 16
     args.excluded = ["MoNuSeg2020"]
