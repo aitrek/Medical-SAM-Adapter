@@ -50,7 +50,7 @@ def main():
 
     if args.seed is not None:
         np.random.seed(args.seed)
-        random.sed(args.seed)
+        random.seed(args.seed)
         torch.manual_seed(args.seed)
         torch.cuda.manual_seed(args.seed)
         torch.cuda.manual_seed_all(args.seed)
